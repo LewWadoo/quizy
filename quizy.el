@@ -53,6 +53,8 @@
 (defvar-local quizy--database-file nil)
 (defvar-local quizy--category nil)
 (defvar-local quizy--current-question nil)
+(defvar-local quizy--current-answers nil)
+(defvar-local quizy--current-correct nil)
 (defvar-local quizy--selected-answer nil)
 (defvar-local quizy--last-question-id nil)
 
@@ -144,11 +146,20 @@ answers, a category, and a CORRECT value from 1 through 4."
                 database-directory)))
       (expand-file-name image repository-root))))
 
+(defun quizy--shuffle (sequence)
+  "Return a shuffled list containing the elements of SEQUENCE."
+  (let ((items (vconcat sequence)))
+    (cl-loop for index downfrom (1- (length items)) above 0
+             for other = (random (1+ index))
+             for value = (aref items index)
+             do (aset items index (aref items other))
+             (aset items other value))
+    (append items nil)))
+
 (defun quizy--render-answer (number answer)
   "Render answer NUMBER and ANSWER as a selectable widget."
   (let* ((selected quizy--selected-answer)
-         (is-correct (= number (quizy-question-correct
-                                quizy--current-question)))
+         (is-correct (= number quizy--current-correct))
          (face (when selected
                  (cond
                   (is-correct 'quizy-correct-face)
@@ -191,11 +202,9 @@ answers, a category, and a CORRECT value from 1 through 4."
           (insert (format "[Изображение: %s]\n\n" image)))))
     (dotimes (index 4)
       (quizy--render-answer (1+ index)
-                            (nth index
-                                 (quizy-question-answers
-                                  quizy--current-question))))
+                            (nth index quizy--current-answers)))
     (when quizy--selected-answer
-      (let* ((correct (quizy-question-correct quizy--current-question))
+      (let* ((correct quizy--current-correct)
              (right (= quizy--selected-answer correct)))
         (insert "\n")
         (insert
@@ -204,9 +213,7 @@ answers, a category, and a CORRECT value from 1 through 4."
               "Правильно!"
             (format "Неверно. Правильный ответ: %d. %s"
                     correct
-                    (nth (1- correct)
-                         (quizy-question-answers
-                          quizy--current-question))))
+                    (nth (1- correct) quizy--current-answers)))
           'face (if right 'quizy-correct-face 'quizy-incorrect-face)))))
     (insert "\n\n[n] Следующий вопрос   [c] Категория   [q] Выход\n")
     (widget-setup)
@@ -228,11 +235,18 @@ answers, a category, and a CORRECT value from 1 through 4."
            pool)))
     (unless pool
       (user-error "No questions found for category: %s" quizy--category))
-    (setq quizy--current-question
-          (seq-random-elt (or without-repeat pool))
-          quizy--selected-answer nil
-          quizy--last-question-id
-          (quizy-question-id quizy--current-question))
+    (let* ((question (seq-random-elt (or without-repeat pool)))
+           (answer-order (quizy--shuffle '(1 2 3 4))))
+      (setq quizy--current-question question
+            quizy--current-answers
+            (mapcar (lambda (number)
+                      (nth (1- number) (quizy-question-answers question)))
+                    answer-order)
+            quizy--current-correct
+            (1+ (cl-position (quizy-question-correct question)
+                             answer-order))
+            quizy--selected-answer nil
+            quizy--last-question-id (quizy-question-id question)))
     (quizy--render)))
 
 (defun quizy-next-question ()

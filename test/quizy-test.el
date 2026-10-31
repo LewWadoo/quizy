@@ -48,6 +48,28 @@
         (quizy--choose-question))
       (should (equal (quizy-question-category quizy--current-question) "B")))))
 
+(ert-deftest quizy-shuffles-answers-and-tracks-the-correct-choice ()
+  (let ((question (quizy-question-create
+                   :title "Test question"
+                   :category "Test"
+                   :answers '("One" "Two" "Three" "Four")
+                   :correct 2
+                   :id "test")))
+    (with-temp-buffer
+      (quizy-mode)
+      (setq quizy--questions (list question)
+            quizy--category "Test")
+      (cl-letf (((symbol-function 'quizy--shuffle)
+                 (lambda (_sequence) '(4 3 2 1)))
+                ((symbol-function 'quizy--render) #'ignore))
+        (quizy--choose-question))
+      (should (equal quizy--current-answers
+                     '("Four" "Three" "Two" "One")))
+      (should (= quizy--current-correct 3))
+      (cl-letf (((symbol-function 'quizy--render) #'ignore))
+        (quizy-answer 3))
+      (should (= quizy--selected-answer quizy--current-correct)))))
+
 (ert-deftest quizy-starts-with-four-selectable-answers ()
   (cl-letf (((symbol-function 'completing-read)
              (lambda (_prompt _collection &optional _predicate _require-match
@@ -88,7 +110,9 @@
       (setq quizy--questions (list question)
             quizy--database-file quizy-database-file
             quizy--category "Test"
-            quizy--current-question question)
+            quizy--current-question question
+            quizy--current-answers (quizy-question-answers question)
+            quizy--current-correct (quizy-question-correct question))
       (quizy--render)
       (should (string-match-p "1\\. One" (buffer-string)))
       (should (string-match-p "4\\. Four" (buffer-string)))

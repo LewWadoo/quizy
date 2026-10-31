@@ -20,7 +20,8 @@ Or load `quizy.el` with `M-x load-file`, then run `M-x quizy`.
 
 Choose a category from the prompt, or choose **Случайный вопрос** to mix all
 categories. Select an answer by clicking its button or pressing `1`–`4`.
-Quizy marks the correct answer and tells you whether your choice was right.
+Answer order is shuffled for every question; Quizy marks the correct answer
+and tells you whether your choice was right.
 
 | Key | Action |
 | --- | --- |
